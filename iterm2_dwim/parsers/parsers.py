@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 
 from iterm2_dwim.logger import log
 
@@ -43,10 +44,24 @@ class Rule(object):
                     'Interpreting as relative path, but current working '
                     'directory unknown.'
                 )
-            self.path = os.path.join(CWD, self.path)
 
-        if not os.path.exists(self.path):
-            raise ParseError()
+            path = os.path.join(CWD, self.path)
+            if os.path.exists(path):
+                self.path = path
+            else:
+                try:
+                    root = (
+                        subprocess
+                        .check_output(['git', 'rev-parse', '--show-toplevel'],
+                                      cwd=CWD)
+                        .strip()
+                        .decode('utf-8'))
+                except subprocess.CalledProcessError:
+                    raise ParseError
+                else:
+                    self.path = os.path.join(root, self.path)
+                    if not os.path.exists(self.path):
+                        raise ParseError()
 
         if not self.line:
             self.line = 1
